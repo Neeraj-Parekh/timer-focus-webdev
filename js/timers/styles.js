@@ -143,23 +143,79 @@ const TimerStyles = (() => {
         const styles = document.createElement('style');
         styles.id = 'timer-styles-css';
         styles.textContent = `
-            .analog-clock { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 200px; height: 200px; }
+            /* VSISIBILITY TOGGLES */
+            .style-analog .timer-svg,
+            .style-analog #timer-time,
+            .style-flip .timer-ring,
+            .style-flip .timer-inner #timer-time,
+            .style-nixie .timer-ring,
+            .style-nixie .timer-inner #timer-time,
+            .style-hourglass .timer-ring,
+            .style-hourglass .timer-inner #timer-time,
+            .style-hourglass .timer-inner {
+                display: none !important;
+            }
+
+            /* ANALOG CLOCK */
+            .analog-clock { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 220px; height: 220px; z-index: 10; }
             .clock-face { width: 100%; height: 100%; border-radius: 50%; background: var(--bg-secondary); border: 4px solid var(--accent-primary); position: relative; box-shadow: inset 0 0 30px rgba(0,0,0,0.3); }
             .clock-markers { position: absolute; inset: 10px; }
-            .clock-marker { position: absolute; left: 50%; top: 0; width: 2px; height: 10px; background: var(--text-muted); transform-origin: center 90px; }
+            .clock-marker { position: absolute; left: 50%; top: 0; width: 2px; height: 10px; background: var(--text-muted); transform-origin: center 100px; }
             .clock-marker:nth-child(3n) { height: 15px; width: 3px; background: var(--text-primary); }
             .clock-hand { position: absolute; left: 50%; bottom: 50%; transform-origin: bottom center; border-radius: 4px; }
-            .minute-hand { width: 4px; height: 60px; background: var(--accent-primary); margin-left: -2px; box-shadow: 0 0 10px var(--accent-primary); }
-            .second-hand { width: 2px; height: 70px; background: var(--accent-error); margin-left: -1px; }
-            .clock-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 12px; height: 12px; border-radius: 50%; background: var(--accent-primary); box-shadow: 0 0 10px var(--accent-primary); }
+            .minute-hand { width: 4px; height: 70px; background: var(--accent-primary); margin-left: -2px; box-shadow: 0 0 10px var(--accent-primary); z-index: 2; }
+            .second-hand { width: 2px; height: 90px; background: var(--accent-error); margin-left: -1px; z-index: 3; }
+            .clock-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 12px; height: 12px; border-radius: 50%; background: var(--accent-primary); box-shadow: 0 0 10px var(--accent-primary); z-index: 4; }
+
+            /* LINEAR STYLE */
             .linear-progress-container { width: 100%; padding: 0 var(--space-4); margin-bottom: var(--space-6); }
             .linear-progress-bg { height: 8px; background: var(--bg-tertiary); border-radius: var(--radius-full); overflow: hidden; }
             .linear-progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary)); border-radius: var(--radius-full); transition: width 1s linear; box-shadow: 0 0 10px var(--accent-primary); }
             .linear-progress-labels { display: flex; justify-content: space-between; margin-top: var(--space-2); font-size: var(--text-sm); color: var(--text-muted); font-family: var(--font-mono); }
+
+            /* DIGITAL STYLE */
             .timer-time.digital-style { font-family: 'JetBrains Mono', monospace; letter-spacing: 4px; text-shadow: 0 0 20px var(--accent-primary); }
             .timer-time.blink::after { content: ''; opacity: 0.3; }
+
+            /* MINIMAL STYLE */
             .timer-display.minimal-style { background: none; }
-            .timer-display.minimal-style .timer-svg { opacity: 0.3; }
+            .timer-display.minimal-style .timer-svg { opacity: 0.1; }
+
+            /* FLIP CLOCK */
+            .flip-clock-display { display: flex; gap: 6px; justify-content: center; align-items: center; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10; }
+            .flip-group { display: flex; gap: 4px; position: relative; }
+            .flip-group::after { content: ':'; position: absolute; right: -12px; top: 45%; transform: translateY(-50%); font-size: 40px; color: #fff; text-shadow: 0 0 10px rgba(255, 255, 255, 0.5); }
+            .flip-group:last-child::after { content: none; }
+            .flip-unit { width: 50px; height: 75px; background: #121212; border-radius: 4px; position: relative; font-family: 'Courier New', monospace; font-size: 55px; font-weight: bold; color: #fff; box-shadow: 0 0 0 1px #222; perspective: 1000px; line-height: 75px; text-align: center; }
+            .flip-unit .top, .flip-unit .bottom, .flip-unit .leaf-front, .flip-unit .leaf-back { position: absolute; left: 0; width: 100%; height: 50%; overflow: hidden; background: #121212; backface-visibility: hidden; }
+            .flip-unit .top, .flip-unit .leaf-front { top: 0; border-radius: 4px 4px 0 0; transform-origin: 50% 100%; border-bottom: 1px solid #000; }
+            .flip-unit .bottom, .flip-unit .leaf-back { bottom: 0; border-radius: 0 0 4px 4px; transform-origin: 50% 0%; border-top: 1px solid #000; display: flex; align-items: flex-end; justify-content: center; }
+            .flip-unit .top::after, .flip-unit .leaf-front::after { content: attr(data-val); position: absolute; left: 0; top: 0; width: 100%; height: 200%; text-shadow: 0 0 5px rgba(255, 255, 255, 0.2); }
+            .flip-unit .bottom::after, .flip-unit .leaf-back::after { content: attr(data-val); position: absolute; left: 0; top: -100%; width: 100%; height: 200%; text-shadow: 0 0 5px rgba(255, 255, 255, 0.2); }
+            .flip-unit .leaf-front { z-index: 3; transform: rotateX(0deg); }
+            .flip-unit .leaf-back { z-index: 2; transform: rotateX(180deg); }
+            .flip-unit.flipping .leaf-front { animation: flipDown 0.6s ease-in-out forwards; }
+            .flip-unit.flipping .leaf-back { animation: flipUp 0.6s ease-in-out forwards; }
+            @keyframes flipDown { 0% { transform: rotateX(0deg); } 100% { transform: rotateX(-180deg); } }
+            @keyframes flipUp { 0% { transform: rotateX(180deg); } 100% { transform: rotateX(0deg); } }
+
+            /* NIXIE TUBE - HYPER REALISTIC */
+            .nixie-display { display: flex; gap: 10px; justify-content: center; align-items: center; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 15px; background: #000; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); z-index: 10; border: 1px solid #333; }
+            .nixie-group { display: flex; gap: 8px; position: relative; padding: 10px 5px; background: transparent; }
+            .nixie-group::after { content: ''; position: absolute; right: -8px; top: 50%; width: 4px; height: 4px; background: #ff9900; box-shadow: 0 0 5px #fff, 0 0 10px #ff9900; border-radius: 50%; transform: translateY(-50%); opacity: 0.8; }
+            .nixie-group:last-child::after { display: none; }
+            .nixie-tube { position: relative; width: 45px; height: 85px; background: linear-gradient(90deg, rgba(255,255,255,0) 5%, rgba(255,255,255,0.3) 8%, rgba(255,255,255,0) 12%), linear-gradient(90deg, rgba(255,255,255,0) 80%, rgba(255,255,255,0.08) 90%, rgba(255,255,255,0) 100%), radial-gradient(circle at 50% 10%, rgba(0,0,0,0.8) 0%, transparent 60%); background-color: rgba(10,10,10,0.3); border-radius: 30px 30px 5px 5px; box-shadow: inset 1px 0 2px rgba(255,255,255,0.15), inset -1px 0 2px rgba(255,255,255,0.1), inset 0 10px 15px rgba(0,0,0,0.9), 0 5px 10px rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; overflow: hidden; border: 1px solid rgba(255,255,255,0.08); }
+            .nixie-tube::before { content: ''; position: absolute; top: -3px; left: 50%; transform: translateX(-50%); width: 12px; height: 8px; background: radial-gradient(circle at 50% 100%, rgba(255,255,255,0.1), transparent); border: 1px solid rgba(255,255,255,0.15); border-bottom: none; border-radius: 50% 50% 0 0; z-index: 20; filter: blur(0.5px); }
+            .nixie-tube::after { content: ''; position: absolute; bottom: 0; left: 10%; width: 80%; height: 4px; background: repeating-linear-gradient(90deg, #111 0, #111 2px, #333 3px, #111 4px); opacity: 0.6; z-index: 5; }
+            .nixie-mesh { position: absolute; inset: 0; background-image: radial-gradient(circle, transparent 60%, rgba(0,0,0,0.4) 100%), repeating-linear-gradient(60deg, rgba(0,0,0,0.3) 0, rgba(0,0,0,0.3) 1px, transparent 1px, transparent 4px), repeating-linear-gradient(-60deg, rgba(0,0,0,0.3) 0, rgba(0,0,0,0.3) 1px, transparent 1px, transparent 4px); background-size: 100% 100%, 3px 5px, 3px 5px; z-index: 15; pointer-events: none; opacity: 0.6; }
+            .nixie-digit { font-family: 'Nixie One', sans-serif; font-size: 50px; font-weight: 400; color: #3d2618; position: absolute; text-align: center; line-height: 85px; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; transform: scaleX(0.65) scaleY(1.3); -webkit-text-stroke: 1px #3d2618; -webkit-text-fill-color: transparent; }
+            .nixie-digit.inactive { opacity: 0.2; filter: blur(0.5px); z-index: 1; -webkit-text-stroke: 1px #2a1510; }
+            .nixie-digit.active { z-index: 10; opacity: 1; -webkit-text-stroke: 2px #fff5e6; -webkit-text-fill-color: #fff5e6; transform: scaleX(0.7) scaleY(1.35); text-shadow: 0 0 3px #fff, 0 0 5px #ff9900, 0 0 10px #ff4500, 0 0 20px #ff4500, 0 5px 12px rgba(0, 150, 255, 0.2); filter: blur(0.4px) contrast(1.2); animation: plasmaFlicker 0.1s infinite alternate; }
+            @keyframes plasmaFlicker { 0% { opacity: 0.98; text-shadow: 0 0 3px #ff9900, 0 0 10px #ff4500; } 100% { opacity: 1; text-shadow: 0 0 4px #ff9900, 0 0 11px #ff4500; } }
+
+            /* HOURGLASS */
+            .hourglass-container { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 280px; height: 280px; display: flex; justify-content: center; align-items: center; z-index: 10; }
+            .hourglass-pixel { width: 1px; height: 1px; will-change: box-shadow; }
         `;
         document.head.appendChild(styles);
     }
@@ -284,6 +340,9 @@ const TimerStyles = (() => {
     const HG_GLASS_COLORS = ['#e0f7fa', '#ffffff'];
     const HG_DIM_GLASS_TOP = '#1a1a1a';
     const HG_DIM_GLASS_BOTTOM = '#1a2626';
+    const NOZZLE_X = 140;
+    const NOZZLE_Y = 140;
+    const COLOR_SAND_FALLING = '#fff9c4';
 
     function initHourglassData() {
         if (hourglassInitialized) return;
@@ -361,6 +420,17 @@ const TimerStyles = (() => {
         return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
     }
 
+    function lerpColor(c1, c2, t) {
+        c1 = c1.replace(/^#/, '');
+        c2 = c2.replace(/^#/, '');
+        let r1 = parseInt(c1.substring(0, 2), 16), g1 = parseInt(c1.substring(2, 4), 16), b1 = parseInt(c1.substring(4, 6), 16);
+        let r2 = parseInt(c2.substring(0, 2), 16), g2 = parseInt(c2.substring(2, 4), 16), b2 = parseInt(c2.substring(4, 6), 16);
+        let r = Math.floor(r1 + (r2 - r1) * t);
+        let g = Math.floor(g1 + (g2 - g1) * t);
+        let b = Math.floor(b1 + (b2 - b1) * t);
+        return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+    }
+
     function renderHourglass(state) {
         initHourglassData();
         let container = document.querySelector('.hourglass-container');
@@ -374,21 +444,77 @@ const TimerStyles = (() => {
         const art = container.querySelector('#hourglass-art');
         if (!art) return;
 
-        const progress = state.progress;
-        let frameColors = hgPixelMap.map(p => (HG_SAND_COLORS.includes(p.c) || HG_GLASS_COLORS.includes(p.c)) ? p.emptyGlassC : p.dimC);
-
+        const progress = state.progress; // 0.0 to 1.0
         const totalGrains = hgGrains.length;
-        let grainIndex = Math.floor(progress * totalGrains);
-        if (grainIndex >= totalGrains) grainIndex = totalGrains - 1;
 
-        for (let i = 0; i < totalGrains; i++) {
-            const grain = hgGrains[i];
-            const targetP = hgPixelMap[grain.targetIndex];
-            if (i > grainIndex) frameColors[grain.sourceIndex] = targetP.dimC;
-            else frameColors[grain.targetIndex] = targetP.brightC;
+        let frameColors = hgPixelMap.map(p => (HG_SAND_COLORS.includes(p.c) || HG_GLASS_COLORS.includes(p.c)) ? p.emptyGlassC : p.dimC);
+        let fallingShadow = null;
+
+        if (progress >= 1.0) {
+            // FINISHED
+            for (let i = 0; i < totalGrains; i++) {
+                const grain = hgGrains[i];
+                const targetP = hgPixelMap[grain.targetIndex];
+                frameColors[grain.targetIndex] = targetP.brightC;
+            }
+        } else {
+            // ANIMATING
+            let grainIndex = Math.floor(progress * totalGrains);
+            if (grainIndex >= totalGrains) grainIndex = totalGrains - 1;
+
+            let grainDuration = state.totalSeconds / totalGrains;
+            let currentElapsed = state.totalSeconds * progress;
+            let grainTime = currentElapsed % grainDuration;
+            // Handle edge case where grainTime might be NaN if totalSeconds is 0
+            if (state.totalSeconds === 0) grainTime = 0;
+
+            let grainProgress = Math.min(grainTime / grainDuration, 1.0);
+
+            for (let i = 0; i < totalGrains; i++) {
+                const grain = hgGrains[i];
+                let sourceP = hgPixelMap[grain.sourceIndex];
+                let targetP = hgPixelMap[grain.targetIndex];
+
+                if (i > grainIndex) {
+                    // WAITING
+                    frameColors[grain.sourceIndex] = targetP.dimC;
+                } else if (i < grainIndex) {
+                    // LANDED
+                    frameColors[grain.targetIndex] = targetP.brightC;
+                } else if (i === grainIndex) {
+                    // ACTIVE GRAIN
+                    // Phase 1: Glow/Pulse (0% - 20%)
+                    if (grainProgress < 0.20) {
+                        let t = Math.sin((grainProgress / 0.20) * Math.PI);
+                        let pulseColor = lerpColor(targetP.dimC, targetP.activeC, t);
+                        frameColors[grain.sourceIndex] = pulseColor;
+                    }
+                    // Phase 2: Gap (20% - 25%) - Do nothing (empty)
+
+                    // Phase 3: Falling (25% - 100%)
+                    else if (grainProgress >= 0.25) {
+                        let fallTime = (grainProgress - 0.25) / 0.75;
+                        let curX, curY;
+
+                        if (fallTime < 0.8) {
+                            // Vertical Drop
+                            let pDrop = Math.pow(fallTime / 0.8, 2);
+                            curX = NOZZLE_X;
+                            curY = NOZZLE_Y + (targetP.y - NOZZLE_Y) * pDrop;
+                        } else {
+                            // Horizontal Slide
+                            let pSlide = (fallTime - 0.8) / 0.2;
+                            curX = NOZZLE_X + (targetP.x - NOZZLE_X) * pSlide;
+                            curY = targetP.y;
+                        }
+                        fallingShadow = `${curX}px ${curY}px 0 0 ${COLOR_SAND_FALLING}`;
+                    }
+                }
+            }
         }
 
         let parts = frameColors.map((c, i) => `${hgPixelMap[i].x}px ${hgPixelMap[i].y}px 0 0 ${c}`);
+        if (fallingShadow) parts.push(fallingShadow);
         art.style.boxShadow = parts.join(', ');
     }
 

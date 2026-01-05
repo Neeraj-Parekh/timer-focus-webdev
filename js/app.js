@@ -53,6 +53,15 @@ const App = (() => {
                 const queue = Tasks.getQueue();
                 UI.renderTaskQueue(queue, Timer.getState().currentTaskId);
                 Timer.setQueue(queue);
+
+                // Refresh active view if needed
+                const activeView = document.querySelector('.view.active');
+                if (activeView) {
+                    const viewName = activeView.id.replace('view-', '');
+                    if (['matrix', 'tasks', 'folders'].includes(viewName)) {
+                        UI.showView(viewName);
+                    }
+                }
             });
             console.log('✓ Tasks loaded:', tasks.length);
 
@@ -163,6 +172,38 @@ const App = (() => {
 
         document.getElementById('btn-skip-prev')?.addEventListener('click', () => {
             Timer.skipPrev();
+        });
+
+        // AOD Toggle
+        document.getElementById('btn-aod')?.addEventListener('click', async () => {
+            const isAOD = document.body.classList.toggle('aod-mode');
+            const btn = document.getElementById('btn-aod');
+
+            if (isAOD) {
+                UI.showToast('Always On Display Active', 'info', 2000);
+                // Force wake lock for AOD
+                if ('wakeLock' in navigator) {
+                    try {
+                        window.aodWakeLock = await navigator.wakeLock.request('screen');
+                    } catch (err) {
+                        console.error('AOD Wake Lock failed:', err);
+                    }
+                }
+                if (btn) btn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+                if (btn) btn.title = "Exit AOD";
+            } else {
+                // Release AOD specific lock
+                if (window.aodWakeLock) {
+                    await window.aodWakeLock.release();
+                    window.aodWakeLock = null;
+                }
+                // Re-evaluate standard wake lock logic
+                if (Timer.getState().isRunning && settings.keepScreenOn) {
+                    requestWakeLock();
+                }
+                if (btn) btn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a9 9 0 1 0 9 9 9 9 0 0 0-9-9zm0 0v9"></path><circle cx="12" cy="12" r="1"></circle></svg>';
+                if (btn) btn.title = "AOD Mode";
+            }
         });
 
         // Add task button

@@ -755,3 +755,78 @@ textarea::placeholder {
         padding-bottom: calc(var(--bottom-nav-height) + var(--space-6) + max(0px, env(safe-area-inset-bottom)));
     }
 }
+
+/* --- AOD MODE (ALWAYS ON DISPLAY) --- */
+body.aod-mode {
+    background-color: #000 !important;
+    overflow: hidden !important;
+}
+
+body.aod-mode .app-header,
+body.aod-mode .bottom-nav,
+body.aod-mode .session-info,
+body.aod-mode .task-queue-section,
+body.aod-mode .fab,
+body.aod-mode #session-info {
+    display: none !important;
+}
+
+body.aod-mode .main-content {
+    padding: 0 !important;
+    margin: 0 !important;
+    height: 100vh !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    background: #000 !important;
+}
+
+body.aod-mode .view.active {
+    height: 100% !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+}
+
+body.aod-mode .timer-container {
+    transform: scale(1.1);
+    margin: 0 !important;
+}
+
+/* Dim the timer slightly for OLED protection/night feeling */
+body.aod-mode .timer-display {
+    opacity: 0.8 !important;
+    filter: brightness(0.9);
+}
+
+/* Hide all controls except AOD toggle */
+body.aod-mode .timer-controls button:not(#btn-aod) {
+    display: none !important;
+}
+
+/* Position the AOD toggle at bottom center */
+body.aod-mode #btn-aod {
+    position: fixed;
+    bottom: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: #fff !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-radius: 50%;
+    width: 56px;
+    height: 56px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+body.aod-mode #btn-aod svg {
+    width: 28px;
+    height: 28px;
+}
+
+body.aod-mode #btn-aod:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+}

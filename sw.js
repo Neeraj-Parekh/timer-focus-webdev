@@ -3,7 +3,7 @@
  * Handles offline support, caching, and background sync
  */
 
-const CACHE_NAME = 'focus-timer-v5';
+const CACHE_NAME = 'focus-timer-v6';
 const STATIC_ASSETS = [
     '/',
     '/index.html',

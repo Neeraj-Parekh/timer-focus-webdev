@@ -35,19 +35,104 @@ const Timer = (() => {
     let onStateChange = null;
 
     /**
+     * Save timer state to local storage
+     */
+    function saveState() {
+        const stateToSave = {
+            ...state,
+            lastSavedAt: Date.now()
+        };
+        localStorage.setItem('focus_timer_state', JSON.stringify(stateToSave));
+    }
+
+    /**
+     * Load timer state from local storage
+     */
+    function loadState() {
+        try {
+            const saved = localStorage.getItem('focus_timer_state');
+            if (!saved) return null;
+            return JSON.parse(saved);
+        } catch (e) {
+            console.error('Failed to load timer state:', e);
+            return null;
+        }
+    }
+
+    /**
+     * Clear saved state
+     */
+    function clearState() {
+        localStorage.removeItem('focus_timer_state');
+    }
+
+    /**
      * Initialize timer with queue
      */
     function init(taskQueue, callbacks = {}) {
-        state.queue = taskQueue || [];
-        state.currentTaskIndex = 0;
-
         onTick = callbacks.onTick || (() => { });
         onComplete = callbacks.onComplete || (() => { });
         onTaskChange = callbacks.onTaskChange || (() => { });
         onStateChange = callbacks.onStateChange || (() => { });
 
-        if (state.queue.length > 0) {
-            setCurrentTask(state.queue[0]);
+        // Check for saved state first
+        const savedState = loadState();
+        const now = Date.now();
+
+        if (savedState && savedState.isRunning && !savedState.isPaused) {
+            // Calculate elapsed time while closed
+            const elapsedSinceSave = Math.floor((now - savedState.lastSavedAt) / 1000);
+
+            if (elapsedSinceSave < savedState.remainingSeconds) {
+                // Resume timer
+                state = {
+                    ...savedState,
+                    remainingSeconds: savedState.remainingSeconds - elapsedSinceSave,
+                    totalFocusTime: savedState.totalFocusTime + elapsedSinceSave,
+                    // Don't count "closed" time as streak time efficiently, but keep streak alive
+                    lastFocusStart: now // Reset streak start for simplicity or keep arithmetic complex? keeping simple
+                };
+
+                // If the queue was empty in saved state but we have a new queue passed to init, 
+                // typically init is called with empty queue on page load by app.js IF extracting from storage separately.
+                // But here we want to restore variables.
+
+                // Restore queue if empty (unlikely if strictly reloading)
+                if (state.queue.length === 0 && taskQueue && taskQueue.length > 0) {
+                    state.queue = taskQueue;
+                }
+
+                startInterval();
+                notifyStateChange();
+                return; // Early return, restored running state
+            } else {
+                // Timer finished while closed
+                // We should ideally mark it complete
+                // For now, let's just reset or show it finished.
+                // Let's reset to start of that task or moved to next?
+                // Safest is to pause at 0 or simply stop.
+                state = { ...savedState, remainingSeconds: 0, isRunning: false, isPaused: false };
+                // Optionally trigger complete? dangerous if user opens 5 tabs.
+                // Just clear state.
+                clearState();
+            }
+        } else if (savedState) {
+            // Restore paused or stopped state
+            state = savedState;
+            // Ensure UI updates
+            notifyStateChange();
+        }
+
+        // Fallback/Default initialization
+        if (!state.currentTaskId && taskQueue && taskQueue.length > 0) {
+            state.queue = taskQueue || [];
+            state.currentTaskIndex = 0;
+            if (state.queue.length > 0) {
+                setCurrentTask(state.queue[0]);
+            }
+        } else if (taskQueue && taskQueue.length > 0 && (!state.queue || state.queue.length === 0)) {
+            // If we loaded state but queue was empty (completed?), re-fill
+            state.queue = taskQueue;
         }
 
         notifyStateChange();
@@ -64,6 +149,7 @@ const Timer = (() => {
         state.remainingSeconds = state.totalSeconds;
 
         onTaskChange(task);
+        saveState();
         notifyStateChange();
     }
 
@@ -93,13 +179,14 @@ const Timer = (() => {
             state.lastFocusStart = Date.now();
 
             const currentTask = state.queue[state.currentTaskIndex];
-            if (currentTask) {
+            if (currentTask && (!state.currentTaskId || state.currentTaskId !== currentTask.id)) {
                 setCurrentTask(currentTask);
             }
         }
 
         state.isRunning = true;
         startInterval();
+        saveState();
         notifyStateChange();
 
         return true;
@@ -125,6 +212,7 @@ const Timer = (() => {
         state.isPaused = true;
         state.pausedAt = Date.now();
         stopInterval();
+        saveState();
         notifyStateChange();
     }
 
@@ -139,6 +227,7 @@ const Timer = (() => {
         // ML Tracking: Restart focus streak timer
         state.lastFocusStart = Date.now();
         startInterval();
+        saveState();
         notifyStateChange();
     }
 
@@ -176,9 +265,14 @@ const Timer = (() => {
         // Reset to first task
         if (state.queue.length > 0) {
             state.currentTaskIndex = 0;
-            setCurrentTask(state.queue[0]);
+            const task = state.queue[0];
+            state.currentTaskId = task.id;
+            state.totalSeconds = task.duration * 60;
+            state.remainingSeconds = state.totalSeconds;
+            onTaskChange(task); // Notify UI
         }
 
+        clearState();
         notifyStateChange();
     }
 
@@ -208,6 +302,7 @@ const Timer = (() => {
             startInterval();
         }
 
+        saveState();
         notifyStateChange();
     }
 
@@ -232,6 +327,7 @@ const Timer = (() => {
             startInterval();
         }
 
+        saveState();
         notifyStateChange();
     }
 
@@ -263,8 +359,12 @@ const Timer = (() => {
             // All tasks completed
             state.isRunning = false;
             state.isPaused = false;
+            // Optionally cycle? Or just stop.
+            stop(); // This clears state
+            return;
         }
 
+        saveState();
         notifyStateChange();
     }
 
@@ -322,6 +422,10 @@ const Timer = (() => {
                     progress: 1 - (state.remainingSeconds / state.totalSeconds),
                     formatted: formatTime(state.remainingSeconds)
                 });
+
+                // Save state periodically (every second might be too much I/O? localStorage is sync).
+                // It is cheap enough for modern browsers.
+                saveState();
             } else {
                 // Timer completed
                 complete();
@@ -388,14 +492,32 @@ const Timer = (() => {
      * Update queue
      */
     function setQueue(tasks) {
+        // If we have saved state with a queue, we might be overwriting it here via APP init.
+        // We need to be careful. App.js calls this.
+        // If the timer is running, we usually don't want to replace the queue entirely unless intended.
+
         state.queue = tasks;
 
         // Reset to first task if not running
         if (!state.isRunning && tasks.length > 0) {
-            state.currentTaskIndex = 0;
-            setCurrentTask(tasks[0]);
+            // Only reset index if we are truly resetting
+            // For now, assume this is safe or handled by app logic
+            // Ideally we shouldn't reset currentTaskIndex if we just reloaded and restored state.
+            // But setQueue is called by app.js on init.
+            // We need to check if currentTaskIndex is still valid.
+            if (state.currentTaskIndex >= state.queue.length) {
+                state.currentTaskIndex = 0;
+            }
+            if (state.currentTaskIndex < state.queue.length) {
+                // Determine if we should update current task
+                // If we aren't running, yes update to show the task.
+                if (!state.isRunning && !state.isPaused) {
+                    setCurrentTask(tasks[state.currentTaskIndex]);
+                }
+            }
         }
 
+        saveState();
         notifyStateChange();
     }
 
@@ -410,6 +532,7 @@ const Timer = (() => {
             setCurrentTask(task);
         }
 
+        saveState();
         notifyStateChange();
     }
 
@@ -433,6 +556,7 @@ const Timer = (() => {
             }
         }
 
+        saveState();
         notifyStateChange();
     }
 
@@ -451,6 +575,7 @@ const Timer = (() => {
     function resetSession() {
         state.completedInSession = 0;
         state.totalFocusTime = 0;
+        saveState();
         notifyStateChange();
     }
 
@@ -460,6 +585,7 @@ const Timer = (() => {
     function incrementInterruption() {
         if (state.isRunning && !state.isPaused) {
             state.interruptionCount++;
+            saveState();
         }
     }
 
