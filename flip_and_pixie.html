@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dual Mode Retro Clock</title>
+    <style>
+        /* Import Nixie One Font - Must be at the very top */
+        @import url('https://fonts.googleapis.com/css2?family=Nixie+One&display=swap');
+
+        /* --- RESET & BASICS --- */
+        :root {
+            /* Shared */
+            --bg-color: #050505;
+            --anim-speed: 0.6s;
+
+            /* Flip Clock Variables */
+            --flip-card-bg: #121212;
+            --flip-text: #ffffff;
+            --flip-width: 100px;
+            --flip-height: 150px;
+            --flip-font-size: 110px;
+
+            /* Nixie Clock Variables (Hyper-Realistic) */
+            --nixie-bg: #000000;
+            --nixie-off-wire: #3d2618;
+            /* Dark unlit copper */
+            --nixie-active-core: #fff5e6;
+            /* White-hot center */
+            --nixie-active-inner: #ff9900;
+            /* Pure Neon Orange */
+            --nixie-active-outer: #ff4500;
+            /* Red-Orange Haze */
+            --nixie-argon-halo: rgba(0, 150, 255, 0.2);
+            /* Blue Argon Aura */
+            --nixie-width: 90px;
+            --nixie-height: 170px;
+            /* Slightly taller for IN-18 look */
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: #fff;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            transition: background 0.5s;
+        }
+
+        /* --- CONTROLS --- */
+        .controls-container {
+            position: absolute;
+            top: 20px;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: center;
+            width: 100%;
+        }
+
+        .control-group {
+            display: flex;
+            gap: 10px;
+            background: rgba(20, 20, 20, 0.9);
+            padding: 5px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        button {
+            background: transparent;
+            border: none;
+            color: #666;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            font-size: 12px;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        button.active {
+            background: #fff;
+            color: #000;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+        }
+
+        button[onclick*="nixie"].active {
+            background: var(--nixie-active-inner);
+            color: #220500;
+            box-shadow: 0 0 15px var(--nixie-active-inner);
+        }
+
+        /* --- LAYOUT MANAGERS --- */
+        .clock-container {
+            display: none;
+            gap: 20px;
+            transition: all 0.5s ease;
+        }
+
+        .clock-container.visible {
+            display: flex;
+            animation: fadeIn 0.5s forwards;
+        }
+
+        /* Portrait Mode Optimization Logic */
+        /* Specific Optimization for 384px width (Mobile Portrait) */
+        @media (orientation: portrait) {
+            .clock-container {
+                flex-direction: column;
+                align-items: center;
+                /* Tighter gap to fit 3 groups in 832px height */
+                gap: 25px;
+                /* Scale 1.25x fits perfectly: 220px base width * 1.25 = 275px (leaving margins) */
+                transform: scale(1.25);
+                margin-top: 40px;
+                /* Push down slightly from controls */
+            }
+
+            .controls-container {
+                /* Scale down controls slightly to save header space */
+                transform: scale(0.9);
+                top: 15px;
+            }
+
+            .flip-group::after,
+            .nixie-group::after {
+                display: none;
+            }
+        }
+
+        @media (orientation: landscape) and (max-width: 800px) {
+            .clock-container {
+                transform: scale(0.65);
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+
+            /* Ensure translateY doesn't conflict */
+        }
+
+        /* Ensure keyframes override properly in portrait */
+        @media (orientation: portrait) {
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                    transform: scale(0.95);
+                }
+
+                to {
+                    opacity: 1;
+                    transform: scale(1.25);
+                }
+
+                /* Match the portrait scale */
+            }
+        }
+
+        /* =========================================
+           STYLE 1: FLIP CLOCK
+           ========================================= */
+        .flip-group {
+            display: flex;
+            gap: 6px;
+            position: relative;
+        }
+
+        .flip-group::after {
+            content: ':';
+            position: absolute;
+            right: -14px;
+            top: 45%;
+            transform: translateY(-50%);
+            font-size: 60px;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+        .flip-group:last-child::after {
+            content: '';
+        }
+
+        .flip-unit {
+            position: relative;
+            width: var(--flip-width);
+            height: var(--flip-height);
+            background-color: var(--flip-card-bg);
+            border-radius: 6px;
+            box-shadow: 0 0 0 1px #222;
+            font-size: var(--flip-font-size);
+            font-weight: bold;
+            line-height: var(--flip-height);
+            text-align: center;
+            color: var(--flip-text);
+            perspective: 1000px;
+        }
+
+        .top,
+        .bottom,
+        .leaf-front,
+        .leaf-back {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            height: 50%;
+            overflow: hidden;
+            background-color: var(--flip-card-bg);
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+        }
+
+        .top,
+        .leaf-front {
+            top: 0;
+            border-radius: 6px 6px 0 0;
+            transform-origin: 50% 100%;
+            border-bottom: 1px solid #000;
+        }
+
+        .top::after,
+        .leaf-front::after {
+            content: attr(data-val);
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 200%;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
+        }
+
+        .bottom,
+        .leaf-back {
+            bottom: 0;
+            border-radius: 0 0 6px 6px;
+            transform-origin: 50% 0%;
+            border-top: 1px solid #000;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+        }
+
+        .bottom::after,
+        .leaf-back::after {
+            content: attr(data-val);
+            position: absolute;
+            left: 0;
+            top: -100%;
+            width: 100%;
+            height: 200%;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
+        }
+
+        .leaf-front {
+            z-index: 3;
+            transform: rotateX(0deg);
+        }
+
+        .leaf-back {
+            z-index: 2;
+            transform: rotateX(180deg);
+        }
+
+        .flipping .leaf-front {
+            animation: flipDown var(--anim-speed) ease-in-out forwards;
+        }
+
+        .flipping .leaf-back {
+            animation: flipUp var(--anim-speed) ease-in-out forwards;
+        }
+
+        @keyframes flipDown {
+            0% {
+                transform: rotateX(0deg);
+            }
+
+            100% {
+                transform: rotateX(-180deg);
+            }
+        }
+
+        @keyframes flipUp {
+            0% {
+                transform: rotateX(180deg);
+            }
+
+            100% {
+                transform: rotateX(0deg);
+            }
+        }
+
+        /* =========================================
+           STYLE 2: NIXIE TUBE CLOCK (GLASS PHYSICS)
+           ========================================= */
+
+        .nixie-group {
+            display: flex;
+            gap: 20px;
+            position: relative;
+            /* Box Removed - Naked Tubes */
+            padding: 20px 10px;
+            background: transparent;
+            border-radius: 0;
+            box-shadow: none;
+            border-bottom: none;
+        }
+
+        /* Separator Bulbs - Now floating neon dots */
+        .nixie-group::after {
+            content: '';
+            position: absolute;
+            right: -10px;
+            top: 50%;
+            width: 6px;
+            height: 6px;
+            background: var(--nixie-active-inner);
+            box-shadow:
+                0 0 5px #fff,
+                0 0 10px var(--nixie-active-inner),
+                0 0 20px var(--nixie-active-outer),
+                0 30px 0 var(--nixie-active-inner),
+                0 30px 20px var(--nixie-active-outer);
+            transform: translateY(-25px);
+            border-radius: 50%;
+            opacity: 0.8;
+        }
+
+        .nixie-group:last-child::after {
+            display: none;
+        }
+
+        .nixie-tube {
+            position: relative;
+            width: var(--nixie-width);
+            height: var(--nixie-height);
+
+            /* --- REALISTIC GLASS SHADER --- */
+            background:
+                /* 1. Sharp Specular Highlight (Left) - The "Studio Light" reflection */
+                linear-gradient(90deg, rgba(255, 255, 255, 0) 5%, rgba(255, 255, 255, 0.3) 8%, rgba(255, 255, 255, 0) 12%),
+                /* 2. Soft Fill Light (Right) */
+                linear-gradient(90deg, rgba(255, 255, 255, 0) 80%, rgba(255, 255, 255, 0.08) 90%, rgba(255, 255, 255, 0) 100%),
+                /* 3. The "Getter" Darkness (Top) - Silver/Black coating on real tubes */
+                radial-gradient(circle at 50% 10%, rgba(0, 0, 0, 0.8) 0%, transparent 60%),
+                /* 4. Glass Volume Tint - Darker at edges (Cylinder effect) */
+                linear-gradient(90deg, rgba(10, 10, 10, 0.6) 0%, rgba(20, 20, 20, 0.1) 30%, rgba(20, 20, 20, 0.1) 70%, rgba(10, 10, 10, 0.6) 100%);
+
+            border-radius: 60px 60px 10px 10px;
+            /* Classic Dome Shape */
+
+            /* Glass thickness & physical presence */
+            box-shadow:
+                /* Inner rim lighting */
+                inset 1px 0 2px rgba(255, 255, 255, 0.15),
+                inset -1px 0 2px rgba(255, 255, 255, 0.1),
+                /* Deep shadow at top/bottom inside */
+                inset 0 20px 30px rgba(0, 0, 0, 0.9),
+                inset 0 -10px 20px rgba(0, 0, 0, 0.8),
+                /* Soft drop shadow on the "table" */
+                0 10px 20px rgba(0, 0, 0, 0.6);
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            /* Subtle glass border */
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-bottom: none;
+        }
+
+        /* THE NIPPLE (Pinch-off) - Distinct top detail */
+        .nixie-tube::before {
+            content: '';
+            position: absolute;
+            top: -5px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 25px;
+            height: 15px;
+            background: radial-gradient(circle at 50% 100%, rgba(255, 255, 255, 0.1), transparent);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-bottom: none;
+            border-radius: 50% 50% 0 0;
+            z-index: 20;
+            filter: blur(0.5px);
+        }
+
+        /* TUBE BASE / PINS - To make it look "plugged in" */
+        .nixie-tube::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 10%;
+            width: 80%;
+            height: 8px;
+            /* Looks like internal pins/ceramic spacer */
+            background:
+                repeating-linear-gradient(90deg, #111 0, #111 4px, #333 5px, #111 6px);
+            opacity: 0.6;
+            z-index: 5;
+        }
+
+        /* ANODE MESH (Honeycomb Grid) */
+        .nixie-mesh {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            /* Fine hexagonal mesh */
+            background-image:
+                radial-gradient(circle, transparent 60%, rgba(0, 0, 0, 0.4) 100%),
+                /* Vignette */
+                repeating-linear-gradient(60deg, rgba(0, 0, 0, 0.3) 0, rgba(0, 0, 0, 0.3) 1px, transparent 1px, transparent 4px),
+                repeating-linear-gradient(-60deg, rgba(0, 0, 0, 0.3) 0, rgba(0, 0, 0, 0.3) 1px, transparent 1px, transparent 4px);
+            background-size: 100% 100%, 6px 10px, 6px 10px;
+            z-index: 15;
+            pointer-events: none;
+            opacity: 0.6;
+            /* Visible but not overpowering */
+        }
+
+        /* DIGIT STYLING */
+        .nixie-digit {
+            /* Updated to use the requested Nixie One font */
+            font-family: 'Nixie One', sans-serif;
+            /* Fallback to sans-serif for clean look if load fails */
+            font-size: 100px;
+            font-weight: 400;
+            /* CRITICAL: Normal weight prevents smudgey 'faux bold' */
+            color: var(--nixie-off-wire);
+            position: absolute;
+            text-align: center;
+            line-height: var(--nixie-height);
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            /* STRETCH TRANSFORM: Adjusted for Nixie One's wider geometry */
+            /* Compressing X more because Nixie One is wide */
+            transform: scaleX(0.65) scaleY(1.3);
+
+            /* Physical Wire Look */
+            -webkit-text-stroke: 2px var(--nixie-off-wire);
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* INACTIVE DIGITS (The Stack) */
+        .nixie-digit.inactive {
+            /* Dark copper wires in background */
+            opacity: 0.2;
+            filter: blur(0.5px);
+            z-index: 1;
+            /* Match the transform of the active digit */
+            transform: scaleX(0.65) scaleY(1.3);
+            -webkit-text-stroke: 2px #2a1510;
+        }
+
+        /* Depth Stacking - subtle parallax */
+        .nixie-digit[data-digit="1"] {
+            transform: scaleX(0.65) scaleY(1.3) translateZ(-2px);
+        }
+
+        .nixie-digit[data-digit="2"] {
+            transform: scaleX(0.65) scaleY(1.3) translateZ(-4px);
+        }
+
+        .nixie-digit[data-digit="3"] {
+            transform: scaleX(0.65) scaleY(1.3) translateZ(-6px);
+        }
+
+        /* ... */
+
+        /* ACTIVE DIGIT (The Plasma) */
+        .nixie-digit.active {
+            z-index: 10;
+            opacity: 1;
+            /* Light up the core */
+            -webkit-text-stroke: 3px var(--nixie-active-core);
+            /* Thicker stroke for bloom */
+            -webkit-text-fill-color: var(--nixie-active-core);
+
+            /* Bloom larger when lit */
+            transform: scaleX(0.7) scaleY(1.35);
+
+            /* PLASMA GLOW STACK */
+            text-shadow:
+                0 0 5px #fff,
+                /* Filament Surface */
+                0 0 10px var(--nixie-active-inner),
+                /* Inner Aura */
+                0 0 20px var(--nixie-active-outer),
+                /* Gas Haze */
+                0 0 40px var(--nixie-active-outer),
+                /* Tube Fill */
+                0 10px 25px var(--nixie-argon-halo);
+            /* Blue Mercury Base */
+
+            filter: blur(0.4px) contrast(1.2);
+            animation: plasmaFlicker 0.1s infinite alternate;
+        }
+
+        @keyframes plasmaFlicker {
+            0% {
+                opacity: 0.98;
+                text-shadow: 0 0 5px var(--nixie-active-inner), 0 0 20px var(--nixie-active-outer);
+            }
+
+            100% {
+                opacity: 1;
+                text-shadow: 0 0 7px var(--nixie-active-inner), 0 0 22px var(--nixie-active-outer);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="controls-container">
+        <div class="control-group">
+            <button id="mode-clock" class="active" onclick="setMode('clock')">Clock</button>
+            <button id="mode-timer" onclick="setMode('timer')">Timer</button>
+        </div>
+        <div class="control-group">
+            <button id="style-flip" class="active" onclick="setStyle('flip')">Flip</button>
+            <button id="style-nixie" onclick="setStyle('nixie')">Nixie</button>
+        </div>
+    </div>
+
+    <!-- === FLIP CLOCK === -->
+    <div class="clock-container visible" id="flip-display">
+        <div class="flip-group">
+            <div class="flip-unit" id="f-h-tens">
+                <div class="top"></div>
+                <div class="bottom"></div>
+                <div class="leaf-front"></div>
+                <div class="leaf-back"></div>
+            </div>
+            <div class="flip-unit" id="f-h-ones">
+                <div class="top"></div>
+                <div class="bottom"></div>
+                <div class="leaf-front"></div>
+                <div class="leaf-back"></div>
+            </div>
+        </div>
+        <div class="flip-group">
+            <div class="flip-unit" id="f-m-tens">
+                <div class="top"></div>
+                <div class="bottom"></div>
+                <div class="leaf-front"></div>
+                <div class="leaf-back"></div>
+            </div>
+            <div class="flip-unit" id="f-m-ones">
+                <div class="top"></div>
+                <div class="bottom"></div>
+                <div class="leaf-front"></div>
+                <div class="leaf-back"></div>
+            </div>
+        </div>
+        <div class="flip-group">
+            <div class="flip-unit" id="f-s-tens">
+                <div class="top"></div>
+                <div class="bottom"></div>
+                <div class="leaf-front"></div>
+                <div class="leaf-back"></div>
+            </div>
+            <div class="flip-unit" id="f-s-ones">
+                <div class="top"></div>
+                <div class="bottom"></div>
+                <div class="leaf-front"></div>
+                <div class="leaf-back"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- === NIXIE CLOCK === -->
+    <div class="clock-container" id="nixie-display"></div>
+
+    <script>
+        let currentMode = 'clock';
+        let currentStyle = 'flip';
+        let timerInterval = null;
+        let timerSecondsLeft = 60;
+
+        const flipDigits = {
+            hTens: document.getElementById('f-h-tens'), hOnes: document.getElementById('f-h-ones'),
+            mTens: document.getElementById('f-m-tens'), mOnes: document.getElementById('f-m-ones'),
+            sTens: document.getElementById('f-s-tens'), sOnes: document.getElementById('f-s-ones')
+        };
+        let nixieDigits = {};
+
+        function initNixie() {
+            const container = document.getElementById('nixie-display');
+            const groups = ['h', 'm', 's'];
+
+            groups.forEach(group => {
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'nixie-group';
+                ['tens', 'ones'].forEach(unit => {
+                    const tube = document.createElement('div');
+                    tube.className = 'nixie-tube';
+                    tube.id = `n-${group}-${unit}`;
+
+                    // Wire Mesh Layer
+                    const mesh = document.createElement('div');
+                    mesh.className = 'nixie-mesh';
+                    tube.appendChild(mesh);
+
+                    // Digits Stack
+                    for (let i = 0; i <= 9; i++) {
+                        const d = document.createElement('div');
+                        d.className = `nixie-digit digit-${i} inactive`;
+                        d.setAttribute('data-digit', i); // For CSS stacking logic
+                        d.textContent = i;
+                        tube.appendChild(d);
+                    }
+                    groupDiv.appendChild(tube);
+                });
+                container.appendChild(groupDiv);
+            });
+
+            nixieDigits = {
+                hTens: document.getElementById('n-h-tens'), hOnes: document.getElementById('n-h-ones'),
+                mTens: document.getElementById('n-m-tens'), mOnes: document.getElementById('n-m-ones'),
+                sTens: document.getElementById('n-s-tens'), sOnes: document.getElementById('n-s-ones')
+            };
+        }
+
+        function updateDisplay(h, m, s) {
+            const hStr = String(h).padStart(2, '0');
+            const mStr = String(m).padStart(2, '0');
+            const sStr = String(s).padStart(2, '0');
+            if (currentStyle === 'flip') updateFlip(hStr, mStr, sStr);
+            else updateNixie(hStr, mStr, sStr);
+        }
+
+        function updateFlip(h, m, s) {
+            flipCard(flipDigits.hTens, h[0]); flipCard(flipDigits.hOnes, h[1]);
+            flipCard(flipDigits.mTens, m[0]); flipCard(flipDigits.mOnes, m[1]);
+            flipCard(flipDigits.sTens, s[0]); flipCard(flipDigits.sOnes, s[1]);
+        }
+
+        function flipCard(element, newValue) {
+            const top = element.querySelector('.top'), bottom = element.querySelector('.bottom');
+            const frontLeaf = element.querySelector('.leaf-front'), backLeaf = element.querySelector('.leaf-back');
+            const currentValue = top.getAttribute('data-val');
+            if (newValue === currentValue) return;
+
+            top.setAttribute('data-val', newValue); bottom.setAttribute('data-val', currentValue);
+            frontLeaf.setAttribute('data-val', currentValue); backLeaf.setAttribute('data-val', newValue);
+
+            element.classList.remove('flipping');
+            void element.offsetWidth;
+            element.classList.add('flipping');
+
+            setTimeout(() => {
+                element.classList.remove('flipping');
+                bottom.setAttribute('data-val', newValue);
+                frontLeaf.setAttribute('data-val', newValue);
+            }, 600);
+        }
+
+        function updateNixie(h, m, s) {
+            setNixieTube(nixieDigits.hTens, h[0]); setNixieTube(nixieDigits.hOnes, h[1]);
+            setNixieTube(nixieDigits.mTens, m[0]); setNixieTube(nixieDigits.mOnes, m[1]);
+            setNixieTube(nixieDigits.sTens, s[0]); setNixieTube(nixieDigits.sOnes, s[1]);
+        }
+
+        function setNixieTube(tube, value) {
+            const currentActive = tube.querySelector('.nixie-digit.active');
+            if (currentActive && currentActive.textContent === value) return;
+            if (currentActive) currentActive.className = `nixie-digit digit-${currentActive.textContent} inactive`;
+            const newActive = tube.querySelector(`.digit-${value}`);
+            if (newActive) newActive.className = `nixie-digit digit-${value} active`;
+        }
+
+        function runEngine() {
+            if (currentMode === 'clock') {
+                const now = new Date();
+                updateDisplay(now.getHours(), now.getMinutes(), now.getSeconds());
+            } else {
+                if (timerSecondsLeft < 0) { clearInterval(timerInterval); return; }
+                const h = Math.floor(timerSecondsLeft / 3600);
+                const m = Math.floor((timerSecondsLeft % 3600) / 60);
+                const s = timerSecondsLeft % 60;
+                updateDisplay(h, m, s);
+                timerSecondsLeft--;
+            }
+        }
+
+        function setMode(mode) {
+            if (timerInterval) clearInterval(timerInterval);
+            document.getElementById('mode-clock').classList.toggle('active', mode === 'clock');
+            document.getElementById('mode-timer').classList.toggle('active', mode === 'timer');
+            currentMode = mode;
+            if (mode === 'timer') timerSecondsLeft = 60;
+            runEngine();
+            timerInterval = setInterval(runEngine, 1000);
+        }
+
+        function setStyle(style) {
+            currentStyle = style;
+            document.getElementById('style-flip').classList.toggle('active', style === 'flip');
+            document.getElementById('style-nixie').classList.toggle('active', style === 'nixie');
+            const flipContainer = document.getElementById('flip-display');
+            const nixieContainer = document.getElementById('nixie-display');
+            if (style === 'flip') { flipContainer.classList.add('visible'); nixieContainer.classList.remove('visible'); }
+            else { flipContainer.classList.remove('visible'); nixieContainer.classList.add('visible'); }
+            runEngine();
+        }
+
+        initNixie();
+        setMode('clock');
+    </script>
+</body>
+
+</html>

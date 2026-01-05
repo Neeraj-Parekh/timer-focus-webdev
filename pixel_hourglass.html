@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pixel Art Hourglass - Pomodoro Widget</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: #0a0a0a;
+            /* Deep Black */
+            overflow: hidden;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        .hourglass-container {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            /* smooth rotation */
+            transition: transform 1.0s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+        }
+
+        .rotating {
+            transform: rotate(180deg);
+        }
+
+        .hourglass-pixel {
+            height: 20px;
+            width: 20px;
+            background-color: transparent;
+            /* Center the drawing */
+            transform: translate(-140px, -140px);
+        }
+
+        /* UI Controls */
+        .controls {
+            margin-top: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            z-index: 10;
+        }
+
+        .timer-input-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #1a1a1a;
+            padding: 5px 10px;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+
+        input[type="number"] {
+            background: transparent;
+            border: none;
+            color: #ffca28;
+            font-family: inherit;
+            font-size: 18px;
+            width: 50px;
+            text-align: center;
+            outline: none;
+        }
+
+        /* Remove arrows from number input */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .label {
+            color: #666;
+            font-size: 14px;
+            margin-right: 5px;
+        }
+
+        .btn-primary {
+            background-color: #ffca28;
+            color: #111;
+            border: none;
+            padding: 8px 20px;
+            font-weight: bold;
+            font-size: 14px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-family: inherit;
+            transition: transform 0.1s, box-shadow 0.2s;
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 0 10px rgba(255, 202, 40, 0.4);
+        }
+
+        .btn-primary:active {
+            transform: scale(0.95);
+        }
+
+        .style-toggles {
+            display: flex;
+            gap: 5px;
+        }
+
+        .btn-secondary {
+            background-color: transparent;
+            border: 1px solid #333;
+            color: #444;
+            padding: 5px 10px;
+            font-size: 11px;
+            cursor: pointer;
+            border-radius: 3px;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary:hover {
+            border-color: #555;
+            color: #666;
+        }
+
+        .btn-secondary.active {
+            border-color: #666;
+            color: #888;
+            background-color: #222;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="hourglass-container" id="container">
+        <div class="hourglass-pixel" id="art"></div>
+    </div>
+
+    <div class="controls">
+        <div class="timer-input-group">
+            <input type="number" id="inputMins" value="25" min="1">
+            <span class="label">MIN</span>
+            <button class="btn-primary" onclick="startTimer()">START</button>
+        </div>
+
+        <!-- Kept discreetly for testing/preference -->
+        <div class="style-toggles">
+            <button id="btnA" class="btn-secondary" onclick="setMode('A')">STYLE A</button>
+            <button id="btnB" class="btn-secondary active" onclick="setMode('B')">STYLE B</button>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        let durationSeconds = 25 * 60; // Default 25 minutes
+        const NOZZLE_X = 140;
+        const NOZZLE_Y = 140;
+        const ROTATION_DELAY_MS = 1000;
+        const ROTATION_DURATION_MS = 1000;
+
+        // --- COLORS ---
+
+        // 4. FALLING (Motion)
+        const COLOR_SAND_FALLING = '#fff9c4';     // Pale Yellow/White for motion
+
+        // Background Glass Colors
+        const DIM_GLASS_TOP = '#1a1a1a';
+        const DIM_GLASS_BOTTOM = '#1a2626';
+
+
+        // --- DATA MAP ---
+        const pixelMap = [
+            // ROW 1
+            { x: 20, y: 20, c: '#e67e22' }, { x: 40, y: 20, c: '#e67e22' }, { x: 60, y: 20, c: '#e67e22' }, { x: 80, y: 20, c: '#e67e22' },
+            { x: 100, y: 20, c: '#8d6e63' }, { x: 120, y: 20, c: '#8d6e63' }, { x: 140, y: 20, c: '#8d6e63' }, { x: 160, y: 20, c: '#8d6e63' }, { x: 180, y: 20, c: '#8d6e63' },
+            { x: 200, y: 20, c: '#e67e22' }, { x: 220, y: 20, c: '#e67e22' }, { x: 240, y: 20, c: '#e67e22' }, { x: 260, y: 20, c: '#e67e22' },
+
+            // ROW 2
+            { x: 20, y: 40, c: '#5d4037' }, { x: 40, y: 40, c: '#5d4037' }, { x: 60, y: 40, c: '#5d4037' }, { x: 80, y: 40, c: '#5d4037' },
+            { x: 100, y: 40, c: '#5d4037' }, { x: 120, y: 40, c: '#5d4037' }, { x: 140, y: 40, c: '#5d4037' }, { x: 160, y: 40, c: '#5d4037' },
+            { x: 180, y: 40, c: '#5d4037' }, { x: 200, y: 40, c: '#5d4037' }, { x: 220, y: 40, c: '#5d4037' }, { x: 240, y: 40, c: '#5d4037' }, { x: 260, y: 40, c: '#5d4037' },
+
+            // ROW 3
+            { x: 60, y: 60, c: '#26a69a' }, { x: 80, y: 60, c: '#e0f7fa' }, { x: 100, y: 60, c: '#ffffff' }, { x: 120, y: 60, c: '#e0f7fa' },
+            { x: 140, y: 60, c: '#e0f7fa' }, { x: 160, y: 60, c: '#e0f7fa' }, { x: 180, y: 60, c: '#e0f7fa' }, { x: 200, y: 60, c: '#e0f7fa' }, { x: 220, y: 60, c: '#26a69a' },
+
+            // ROW 4
+            { x: 80, y: 80, c: '#26a69a' }, { x: 100, y: 80, c: '#e0f7fa' }, { x: 120, y: 80, c: '#ffffff' }, { x: 140, y: 80, c: '#e0f7fa' },
+            { x: 160, y: 80, c: '#e0f7fa' }, { x: 180, y: 80, c: '#e0f7fa' }, { x: 200, y: 80, c: '#26a69a' },
+
+            // ROW 5
+            { x: 100, y: 100, c: '#26a69a' }, { x: 120, y: 100, c: '#e0f7fa' }, { x: 140, y: 100, c: '#e0f7fa' }, { x: 160, y: 100, c: '#e0f7fa' }, { x: 180, y: 100, c: '#26a69a' },
+
+            // ROW 6
+            { x: 120, y: 120, c: '#26a69a' }, { x: 140, y: 120, c: '#e0f7fa' }, { x: 160, y: 120, c: '#26a69a' },
+
+            // ROW 7 (Neck)
+            { x: 120, y: 140, c: '#26a69a' }, { x: 140, y: 140, c: '#fdd835' }, { x: 160, y: 140, c: '#26a69a' },
+
+            // ROW 8
+            { x: 100, y: 160, c: '#26a69a' }, { x: 120, y: 160, c: '#e0f7fa' }, { x: 140, y: 160, c: '#fdd835' }, { x: 160, y: 160, c: '#e0f7fa' }, { x: 180, y: 160, c: '#26a69a' },
+
+            // ROW 9
+            { x: 80, y: 180, c: '#26a69a' }, { x: 100, y: 180, c: '#e0f7fa' }, { x: 120, y: 180, c: '#fdd835' }, { x: 140, y: 180, c: '#fdd835' },
+            { x: 160, y: 180, c: '#fdd835' }, { x: 180, y: 180, c: '#e0f7fa' }, { x: 200, y: 180, c: '#26a69a' },
+
+            // ROW 10
+            { x: 60, y: 200, c: '#26a69a' }, { x: 80, y: 200, c: '#e0f7fa' }, { x: 100, y: 200, c: '#fdd835' }, { x: 120, y: 200, c: '#fdd835' },
+            { x: 140, y: 200, c: '#fdd835' }, { x: 160, y: 200, c: '#fdd835' }, { x: 180, y: 200, c: '#fdd835' }, { x: 200, y: 200, c: '#e0f7fa' }, { x: 220, y: 200, c: '#26a69a' },
+
+            // ROW 11 - THIS IS THE "ONE ROW" WITH DARKER GOLD (#fbc02d)
+            { x: 60, y: 220, c: '#26a69a' }, { x: 80, y: 220, c: '#fdd835' }, { x: 100, y: 220, c: '#fdd835' }, { x: 120, y: 220, c: '#fbc02d' },
+            { x: 140, y: 220, c: '#fbc02d' }, { x: 160, y: 220, c: '#fbc02d' }, { x: 180, y: 220, c: '#fdd835' }, { x: 200, y: 220, c: '#fdd835' }, { x: 220, y: 220, c: '#26a69a' },
+
+            // ROW 12
+            { x: 20, y: 240, c: '#5d4037' }, { x: 40, y: 240, c: '#5d4037' }, { x: 60, y: 240, c: '#5d4037' }, { x: 80, y: 240, c: '#5d4037' },
+            { x: 100, y: 240, c: '#5d4037' }, { x: 120, y: 240, c: '#5d4037' }, { x: 140, y: 240, c: '#5d4037' }, { x: 160, y: 240, c: '#5d4037' },
+            { x: 180, y: 240, c: '#5d4037' }, { x: 200, y: 240, c: '#5d4037' }, { x: 220, y: 240, c: '#5d4037' }, { x: 240, y: 240, c: '#5d4037' }, { x: 260, y: 240, c: '#5d4037' },
+
+            // ROW 13
+            { x: 20, y: 260, c: '#e67e22' }, { x: 40, y: 260, c: '#e67e22' }, { x: 60, y: 260, c: '#e67e22' }, { x: 80, y: 260, c: '#e67e22' },
+            { x: 100, y: 260, c: '#8d6e63' }, { x: 120, y: 260, c: '#8d6e63' }, { x: 140, y: 260, c: '#8d6e63' }, { x: 160, y: 260, c: '#8d6e63' }, { x: 180, y: 260, c: '#8d6e63' },
+            { x: 200, y: 260, c: '#e67e22' }, { x: 220, y: 260, c: '#e67e22' }, { x: 240, y: 260, c: '#e67e22' }, { x: 260, y: 260, c: '#e67e22' }
+        ];
+
+        // --- PRE-PROCESSING ---
+        const SAND_COLORS = ['#fdd835', '#fbc02d'];
+        const GLASS_COLORS = ['#e0f7fa', '#ffffff'];
+        const MIDDLE_Y = 145;
+
+        // 1. Identify "Frame" vs "Sand" vs "Glass"
+        const allSandIndices = [];
+        const topSlotsIndices = [];
+
+        pixelMap.forEach((p, i) => {
+            // Default "Dim" color (20% Brightness) - Used for Waiting/Dim state
+            p.dimC = adjustBrightness(p.c, 0.2);
+
+            // "Active" color (60% Brightness) - Used for blinking/falling pulse
+            p.activeC = adjustBrightness(p.c, 0.6);
+
+            // "Bright" color (100% Brightness) - Used for Landed state
+            p.brightC = p.c;
+
+            // Assign Glass Backgrounds
+            if (p.y < MIDDLE_Y) {
+                p.emptyGlassC = DIM_GLASS_TOP;
+            } else {
+                p.emptyGlassC = DIM_GLASS_BOTTOM;
+            }
+
+            // Identify Sand & Top Slots
+            if (SAND_COLORS.includes(p.c)) {
+                allSandIndices.push(i);
+            }
+            if (p.y < MIDDLE_Y && GLASS_COLORS.includes(p.c)) {
+                topSlotsIndices.push(i);
+            }
+        });
+
+        // 2. SORT TOP SLOTS: Top-Down
+        topSlotsIndices.sort((a, b) => {
+            if (pixelMap[a].y !== pixelMap[b].y) return pixelMap[a].y - pixelMap[b].y;
+            return pixelMap[a].x - pixelMap[b].x;
+        });
+
+        // 3. SORT BOTTOM TARGETS: Bottom-Up
+        allSandIndices.sort((a, b) => {
+            if (pixelMap[a].y !== pixelMap[b].y) return pixelMap[b].y - pixelMap[a].y;
+            let distA = Math.abs(pixelMap[a].x - 140);
+            let distB = Math.abs(pixelMap[b].x - 140);
+            return distA - distB;
+        });
+
+        // 4. Map Grains
+        const grains = [];
+        const safeCount = Math.min(allSandIndices.length, topSlotsIndices.length);
+
+        for (let i = 0; i < safeCount; i++) {
+            const sourceIndex = topSlotsIndices[i];
+            const targetIndex = allSandIndices[i];
+            grains.push({ sourceIndex, targetIndex, id: i });
+        }
+
+        // 5. SORT GRAINS by Removal Order
+        grains.sort((a, b) => {
+            let pA = pixelMap[a.sourceIndex];
+            let pB = pixelMap[b.sourceIndex];
+            if (pA.y !== pB.y) return pA.y - pB.y;
+            return pA.x - pB.x;
+        });
+
+        const totalGrains = grains.length;
+
+        // --- STATE MANAGEMENT ---
+        let currentMode = 'B'; // Default to B
+        let startTime = Date.now();
+        let isRotating = false;
+        let rotationTimer = null;
+
+        const artDiv = document.getElementById('art');
+        const containerDiv = document.getElementById('container');
+
+        // External Endpoint for setting duration
+        window.setDuration = function (seconds) {
+            durationSeconds = seconds;
+            // Update UI
+            document.getElementById('inputMins').value = Math.floor(seconds / 60);
+            resetAnimation();
+        }
+
+        function startTimer() {
+            const mins = parseInt(document.getElementById('inputMins').value) || 25;
+            durationSeconds = mins * 60;
+            resetAnimation();
+        }
+
+        function setMode(mode) {
+            currentMode = mode;
+            resetAnimation();
+            document.getElementById('btnA').className = mode === 'A' ? 'btn-secondary active' : 'btn-secondary';
+            document.getElementById('btnB').className = mode === 'B' ? 'btn-secondary active' : 'btn-secondary';
+        }
+
+        function resetAnimation() {
+            startTime = Date.now();
+            isRotating = false;
+            containerDiv.className = 'hourglass-container';
+            if (rotationTimer) clearTimeout(rotationTimer);
+        }
+
+        function triggerRotation() {
+            if (isRotating) return;
+            isRotating = true;
+            containerDiv.className = 'hourglass-container rotating';
+
+            rotationTimer = setTimeout(() => {
+                containerDiv.style.transition = 'none';
+                containerDiv.className = 'hourglass-container';
+                void containerDiv.offsetWidth;
+                containerDiv.style.transition = 'transform 1.0s cubic-bezier(0.68, -0.55, 0.27, 1.55)';
+                resetAnimation();
+            }, ROTATION_DURATION_MS);
+        }
+
+        function adjustBrightness(hex, factor) {
+            hex = hex.replace(/^#/, '');
+            let r = parseInt(hex.substring(0, 2), 16);
+            let g = parseInt(hex.substring(2, 4), 16);
+            let b = parseInt(hex.substring(4, 6), 16);
+            r = Math.floor(r * factor);
+            g = Math.floor(g * factor);
+            b = Math.floor(b * factor);
+            return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+        }
+
+        // Helper to interpolate colors (for the pulse)
+        function lerpColor(c1, c2, t) {
+            c1 = c1.replace(/^#/, '');
+            c2 = c2.replace(/^#/, '');
+            let r1 = parseInt(c1.substring(0, 2), 16), g1 = parseInt(c1.substring(2, 4), 16), b1 = parseInt(c1.substring(4, 6), 16);
+            let r2 = parseInt(c2.substring(0, 2), 16), g2 = parseInt(c2.substring(2, 4), 16), b2 = parseInt(c2.substring(4, 6), 16);
+
+            let r = Math.floor(r1 + (r2 - r1) * t);
+            let g = Math.floor(g1 + (g2 - g1) * t);
+            let b = Math.floor(b1 + (b2 - b1) * t);
+
+            return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+        }
+
+        function animate() {
+            if (isRotating) {
+                requestAnimationFrame(animate);
+                return;
+            }
+
+            const now = Date.now();
+            const elapsed = (now - startTime) / 1000;
+            // Add slight initial delay before sand starts falling
+            let effectiveElapsed = Math.max(0, elapsed - 0.5);
+            let progress = Math.min(effectiveElapsed / durationSeconds, 1.0);
+
+            const globalPulse = 0.3 + (Math.sin(now / 150) + 1) * 0.3;
+
+            // Initialize buffer
+            let frameColors = pixelMap.map(p => {
+                if (SAND_COLORS.includes(p.c) || GLASS_COLORS.includes(p.c)) {
+                    return p.emptyGlassC; // Default to empty
+                }
+                return p.dimC; // Frame
+            });
+
+            let fallingShadow = null;
+
+            if (currentMode === 'A') {
+                // STYLE A: Scanline
+                const totalPixels = pixelMap.length;
+                const currentPixelIndex = Math.floor(progress * totalPixels);
+                for (let i = 0; i < totalPixels; i++) {
+                    const p = pixelMap[i];
+                    if (i < currentPixelIndex) frameColors[i] = p.c;
+                    else if (i === currentPixelIndex) frameColors[i] = adjustBrightness(p.c, globalPulse);
+                    else frameColors[i] = p.dimC;
+                }
+                if (progress >= 1.0 && !isRotating) setTimeout(triggerRotation, ROTATION_DELAY_MS);
+
+            } else {
+                // STYLE B: Golden Physics
+                if (progress >= 1.0) {
+                    // FINISHED: All sand in bottom
+                    for (let i = 0; i < totalGrains; i++) {
+                        const grain = grains[i];
+                        const targetP = pixelMap[grain.targetIndex];
+                        // Landed = Bright
+                        frameColors[grain.targetIndex] = targetP.brightC;
+                    }
+                    if (!isRotating) setTimeout(triggerRotation, ROTATION_DELAY_MS);
+                } else {
+                    // ANIMATING
+                    let grainIndex = Math.floor(progress * totalGrains);
+                    if (grainIndex >= totalGrains) grainIndex = totalGrains - 1;
+
+                    let grainDuration = durationSeconds / totalGrains;
+                    let grainTime = effectiveElapsed % grainDuration;
+                    let grainProgress = Math.min(grainTime / grainDuration, 1.0);
+
+                    for (let i = 0; i < totalGrains; i++) {
+                        const grain = grains[i];
+                        let sourceP = pixelMap[grain.sourceIndex];
+                        let targetP = pixelMap[grain.targetIndex];
+
+                        if (i > grainIndex) {
+                            // WAITING: Still in Top Slot
+                            // Use the color of the *Target* sand (dimmed)
+                            frameColors[grain.sourceIndex] = targetP.dimC;
+                        }
+                        else if (i < grainIndex) {
+                            // LANDED: In Bottom Target
+                            frameColors[grain.targetIndex] = targetP.brightC;
+                        }
+                        else if (i === grainIndex) {
+                            // ACTIVE GRAIN
+
+                            // Phase 1: Glow/Pulse (0% - 20%)
+                            // "glows and unglows to dim"
+                            if (grainProgress < 0.20) {
+                                let t = Math.sin((grainProgress / 0.20) * Math.PI);
+                                let pulseColor = lerpColor(targetP.dimC, targetP.activeC, t);
+                                frameColors[grain.sourceIndex] = pulseColor;
+                            }
+                            // Phase 2: GAP / DELAY (20% - 25%)
+                            // Explicitly do nothing here. The source pixel is cleared (by default buffer), 
+                            // and the falling shadow hasn't started yet.
+                            else if (grainProgress < 0.25) {
+                                // Gap
+                            }
+                            // Phase 3: Falling (25% - 100%)
+                            else {
+                                let fallTime = (grainProgress - 0.25) / 0.75;
+                                let pTarget = pixelMap[grain.targetIndex];
+
+                                let curX, curY;
+
+                                if (fallTime < 0.8) {
+                                    // Vertical Drop with Acceleration
+                                    let pDrop = Math.pow(fallTime / 0.8, 2);
+                                    curX = NOZZLE_X;
+                                    curY = NOZZLE_Y + (pTarget.y - NOZZLE_Y) * pDrop;
+                                } else {
+                                    // Horizontal Slide
+                                    let pSlide = (fallTime - 0.8) / 0.2;
+                                    curX = NOZZLE_X + (pTarget.x - NOZZLE_X) * pSlide;
+                                    curY = pTarget.y;
+                                }
+                                fallingShadow = `${curX}px ${curY}px 0 0 ${COLOR_SAND_FALLING}`;
+                            }
+                        }
+                    }
+                }
+            }
+
+            let parts = frameColors.map((c, i) => {
+                return `${pixelMap[i].x}px ${pixelMap[i].y}px 0 0 ${c}`;
+            });
+
+            if (fallingShadow) parts.push(fallingShadow);
+
+            artDiv.style.boxShadow = parts.join(', ');
+            requestAnimationFrame(animate);
+        }
+
+        requestAnimationFrame(animate);
+
+    </script>
+</body>
+
+</html>
