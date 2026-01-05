@@ -1,4 +1,5 @@
 {
+  "id": "/",
   "name": "Focus Timer Pro",
   "short_name": "Focus Timer",
   "description": "AI-Powered Productivity System for ADHD & Deep Work",
@@ -8,6 +9,7 @@
   "theme_color": "#0F172A",
   "orientation": "portrait-primary",
   "scope": "/",
+  "lang": "en",
   "icons": [
     {
       "src": "icons/icon-72.png",
@@ -73,14 +75,6 @@
       "description": "Add a new task",
       "url": "/index.html?action=add",
       "icons": [{ "src": "icons/icon-96.png", "sizes": "96x96" }]
-    }
-  ],
-  "screenshots": [
-    {
-      "src": "screenshots/timer.png",
-      "sizes": "1080x1920",
-      "type": "image/png",
-      "form_factor": "narrow"
     }
   ]
 }
